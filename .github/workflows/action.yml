@@ -34,13 +34,21 @@ jobs:
     - name: Compile Playit.gg
       run: |
         cd playit-agent
-        cargo build --release
+        cargo build --release --verbose
+        if [ $? -ne 0 ]; then
+          echo "Compilation failed. Check the logs for details."
+          exit 1
+        fi
         ls -la target/release/  # List files in the release directory to check if the binary is there
 
     - name: Configure Playit.gg
       run: |
         echo "PL=$PL" > config.env
         cd playit-agent
+        if [ ! -f ./target/release/playit ]; then
+          echo "The playit binary is not found in the target/release directory."
+          exit 1
+        fi
         ./target/release/playit configure --config ../config.env
 
     - name: Start Playit.gg
