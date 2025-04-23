@@ -1,30 +1,60 @@
-name: Playit.gg Agent on macOS
+name: macOS RDP via playit.gg
 
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  playit:
-    runs-on: macos-latest          # now macOS 14 :contentReference[oaicite:5]{index=5}
+  rdp-session:
+    runs-on: macos-latest     # macOS 14 “Sonoma” on Apple Silicon :contentReference[oaicite:8]{index=8}
+
     steps:
-      - uses: actions/checkout@v4    # pull your code 
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
       - name: Install Rust toolchain
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- -y
-          source $HOME/.cargo/env
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
-      - name: Build playit-agent
+      - name: Clone playit-agent source
         run: |
           git clone https://github.com/playit-cloud/playit-agent.git
           cd playit-agent
-          cargo build --release        # produces the executable :contentReference[oaicite:6]{index=6}
 
-      - name: Run playit-agent
-        env:
-          PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET }}  # must match your secret name 
+      - name: Build playit-agent
         run: |
-          cd playit-agent/target/release
-          chmod +x playit-agent        # ensure executable permission :contentReference[oaicite:7]{index=7}
-          ./playit-agent --secret "${PLAYIT_SECRET}"
+          cd playit-agent
+          cargo build --release     # produces target/release/playit :contentReference[oaicite:9]{index=9}
+
+      - name: Enable macOS Screen Sharing (VNC)
+        run: |
+          sudo systemsetup -setremotelogin on
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate \
+            -configure -access -on \
+            -privs -all \
+            -restart -agent \
+            -menu    # enable VNC-based Screen Sharing :contentReference[oaicite:10]{index=10}
+
+      - name: Authenticate playit.gg agent
+        run: |
+          cd playit-agent
+          nohup ./target/release/playit agent setup &   # will print a claim URL
+          sleep 5
+          # You must click the claim URL in the logs to authorize this agent to your account.
+
+      - name: Create and start tunnel
+        run: |
+          cd playit-agent
+          # forward VNC port 5900
+          nohup ./target/release/playit tunnel tcp --port 5900 &
+
+      - name: Show tunnel info
+        run: |
+          cd playit-agent
+          ./target/release/playit tunnel list   # displays your public endpoint
+
+      - name: Keep job alive
+        # wait so you can connect; timeout after e.g. 1h
+        run: sleep 3600
