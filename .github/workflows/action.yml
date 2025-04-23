@@ -35,6 +35,7 @@ jobs:
       run: |
         cd playit-agent
         cargo build --release
+        ls -la target/release/  # List files in the release directory to check if the binary is there
 
     - name: Configure Playit.gg
       run: |
