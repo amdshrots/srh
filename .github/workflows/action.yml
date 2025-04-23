@@ -1,4 +1,4 @@
-name: Run Playit.gg Agent on macOS
+name: Playit.gg Agent on macOS
 
 on:
   push:
@@ -6,25 +6,25 @@ on:
 
 jobs:
   playit:
-    name: Start Playit.gg Tunnel
-    runs-on: macos-latest            # uses macOS 14 as of May 2024 :contentReference[oaicite:2]{index=2}
+    runs-on: macos-latest          # now macOS 14 :contentReference[oaicite:5]{index=5}
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4     # get your repo’s files :contentReference[oaicite:3]{index=3}
+      - uses: actions/checkout@v4    # pull your code 
 
       - name: Install Rust toolchain
         run: |
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           source $HOME/.cargo/env
 
-      - name: Build playit-agent from source
+      - name: Build playit-agent
         run: |
           git clone https://github.com/playit-cloud/playit-agent.git
           cd playit-agent
-          cargo build --release       # produces target/release/playit-agent
+          cargo build --release        # produces the executable :contentReference[oaicite:6]{index=6}
 
-      - name: Run built agent
+      - name: Run playit-agent
         env:
-          SECRET_KEY: ${{ secrets.PLAYIT_SECRET }}
+          PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET }}  # must match your secret name 
         run: |
-          ./playit-agent --secret "${SECRET_KEY}"
+          cd playit-agent/target/release
+          chmod +x playit-agent        # ensure executable permission :contentReference[oaicite:7]{index=7}
+          ./playit-agent --secret "${PLAYIT_SECRET}"
