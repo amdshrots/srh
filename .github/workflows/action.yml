@@ -41,6 +41,18 @@ jobs:
         fi
         ls -la target/release/  # List files in the release directory to check if the binary is there
 
+    - name: Print playit-cli help
+      run: |
+        cd playit-agent
+        if [ -f ./target/release/playit ]; then
+          ./target/release/playit --help
+        elif [ -f ./target/release/playit-cli ]; then
+          ./target/release/playit-cli --help
+        else
+          echo "No suitable binary found in the target/release directory."
+          exit 1
+        fi
+
     - name: Configure Playit.gg
       run: |
         echo "PL=$PL" > config.env
