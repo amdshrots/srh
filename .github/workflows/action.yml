@@ -15,11 +15,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Install Rust
-      run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    - name: Install Homebrew
+      run: |
+        if ! command -v brew &> /dev/null; then
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        fi
 
-    - name: Source Rust environment
-      run: . $HOME/.cargo/env
+    - name: Install Rust
+      run: |
+        if ! command -v cargo &> /dev/null; then
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          . $HOME/.cargo/env
+        fi
 
     - name: Clone Playit.gg repository
       run: git clone https://github.com/playit-cloud/playit-agent.git
@@ -29,18 +36,13 @@ jobs:
         cd playit-agent
         cargo build --release
 
-    - name: Install Playit.gg
-      run: |
-        sudo curl -SsL https://playit-cloud.github.io/ppa/key.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/playit.gpg >/dev/null
-        echo "deb [signed-by=/etc/apt/trusted.gpg.d/playit.gpg] https://playit-cloud.github.io/ppa/data ./ " | sudo tee /etc/apt/sources.list.d/playit-cloud.list
-        sudo apt update
-        sudo apt install playit
-
     - name: Configure Playit.gg
       run: |
         echo "PL=$PL" > config.env
-        playit configure --config config.env
+        cd playit-agent
+        ./target/release/playit configure --config ../config.env
 
     - name: Start Playit.gg
       run: |
-        playit start
+        cd playit-agent
+        ./target/release/playit start
