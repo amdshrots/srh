@@ -1,79 +1,30 @@
-name: Playit.gg Setup
+name: Run Playit.gg Agent on macOS
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
-  setup-playit:
-    runs-on: macos-latest
-    env:
-      PL: ${{ secrets.PL }}
-
+  playit:
+    name: Start Playit.gg Tunnel
+    runs-on: macos-latest            # uses macOS 14 as of May 2024 :contentReference[oaicite:2]{index=2}
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Check out code
+        uses: actions/checkout@v4     # get your repo’s files :contentReference[oaicite:3]{index=3}
 
-    - name: Install Homebrew
-      run: |
-        if ! command -v brew &> /dev/null; then
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        fi
+      - name: Install Docker
+        run: |
+          brew install --cask docker  # install Docker on macOS runner :contentReference[oaicite:4]{index=4}
+          open --background -a Docker # launch Docker daemon
+          # wait for Docker to be ready
+          while ! docker system info > /dev/null 2>&1; do sleep 1; done
 
-    - name: Install Rust
-      run: |
-        if ! command -v cargo &> /dev/null; then
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          . $HOME/.cargo/env
-        fi
-
-    - name: Clone Playit.gg repository
-      run: git clone https://github.com/playit-cloud/playit-agent.git
-
-    - name: Compile Playit.gg
-      run: |
-        cd playit-agent
-        cargo build --release --verbose
-        if [ $? -ne 0 ]; then
-          echo "Compilation failed. Check the logs for details."
-          exit 1
-        fi
-        ls -la target/release/  # List files in the release directory to check if the binary is there
-
-    - name: Print playit-cli help
-      run: |
-        cd playit-agent
-        if [ -f ./target/release/playit ]; then
-          ./target/release/playit --help
-        elif [ -f ./target/release/playit-cli ]; then
-          ./target/release/playit-cli --help
-        else
-          echo "No suitable binary found in the target/release directory."
-          exit 1
-        fi
-
-    - name: Configure Playit.gg
-      run: |
-        echo "PL=$PL" > config.env
-        cd playit-agent
-        if [ -f ./target/release/playit ]; then
-          ./target/release/playit configure --config ../config.env
-        elif [ -f ./target/release/playit-cli ]; then
-          ./target/release/playit-cli configure --config ../config.env
-        else
-          echo "No suitable binary found in the target/release directory."
-          exit 1
-        fi
-
-    - name: Start Playit.gg
-      run: |
-        cd playit-agent
-        if [ -f ./target/release/playit ]; then
-          ./target/release/playit start
-        elif [ -f ./target/release/playit-cli ]; then
-          ./target/release/playit-cli start
-        else
-          echo "No suitable binary found in the target/release directory."
-          exit 1
-        fi
+      - name: Run Playit.gg Agent in Docker
+        env:
+          SECRET_KEY: ${{ secrets.PLAYIT_SECRET }}  # your Playit.gg secret :contentReference[oaicite:5]{index=5}
+        run: |
+          docker run --rm -d \
+            --name playit-agent \
+            --net=host \
+            -e SECRET_KEY="${SECRET_KEY}" \
+            ghcr.io/playit-cloud/playit-agent:latest
