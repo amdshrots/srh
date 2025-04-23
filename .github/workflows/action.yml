@@ -45,13 +45,23 @@ jobs:
       run: |
         echo "PL=$PL" > config.env
         cd playit-agent
-        if [ ! -f ./target/release/playit ]; then
-          echo "The playit binary is not found in the target/release directory."
+        if [ -f ./target/release/playit ]; then
+          ./target/release/playit configure --config ../config.env
+        elif [ -f ./target/release/playit-cli ]; then
+          ./target/release/playit-cli configure --config ../config.env
+        else
+          echo "No suitable binary found in the target/release directory."
           exit 1
         fi
-        ./target/release/playit configure --config ../config.env
 
     - name: Start Playit.gg
       run: |
         cd playit-agent
-        ./target/release/playit start
+        if [ -f ./target/release/playit ]; then
+          ./target/release/playit start
+        elif [ -f ./target/release/playit-cli ]; then
+          ./target/release/playit-cli start
+        else
+          echo "No suitable binary found in the target/release directory."
+          exit 1
+        fi
