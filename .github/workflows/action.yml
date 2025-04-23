@@ -12,19 +12,19 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4     # get your repo’s files :contentReference[oaicite:3]{index=3}
 
-      - name: Install Docker
+      - name: Install Rust toolchain
         run: |
-          brew install --cask docker  # install Docker on macOS runner :contentReference[oaicite:4]{index=4}
-          open --background -a Docker # launch Docker daemon
-          # wait for Docker to be ready
-          while ! docker system info > /dev/null 2>&1; do sleep 1; done
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          source $HOME/.cargo/env
 
-      - name: Run Playit.gg Agent in Docker
-        env:
-          SECRET_KEY: ${{ secrets.PLAYIT_SECRET }}  # your Playit.gg secret :contentReference[oaicite:5]{index=5}
+      - name: Build playit-agent from source
         run: |
-          docker run --rm -d \
-            --name playit-agent \
-            --net=host \
-            -e SECRET_KEY="${SECRET_KEY}" \
-            ghcr.io/playit-cloud/playit-agent:latest
+          git clone https://github.com/playit-cloud/playit-agent.git
+          cd playit-agent
+          cargo build --release       # produces target/release/playit-agent
+
+      - name: Run built agent
+        env:
+          SECRET_KEY: ${{ secrets.PLAYIT_SECRET }}
+        run: |
+          ./playit-agent --secret "${SECRET_KEY}"
