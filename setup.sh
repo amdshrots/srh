@@ -11,16 +11,19 @@ sudo dscl . -create /Users/kaiden NFSHomeDirectory /Users/kaiden
 sudo dscl . -passwd /Users/kaiden $1
 sudo createhomedir -c -u kaiden > /dev/null
 
-# Enable VNC
+# Enable Screen Sharing
+sudo systemsetup -setremotelogin on
+sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+sudo launchctl start com.apple.screensharing
+
+# Enable Remote Management
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -allowAccessFor -allUsers -privs -all
 sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvnclegacy -vnclegacy yes 
+sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent -console
+sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate
 
 # VNC password
 echo $2 | perl -we 'BEGIN { @k = unpack "C*", pack "H*", "1734516E8BA8C5E2FF1C39567390ADCA"}; $_ = <>; chomp; s/^(.{8}).*/$1/; @p = unpack "C*", $_; foreach (@k) { printf "%02X", $_ ^ (shift @p || 0) }; print "\n"' | sudo tee /Library/Preferences/com.apple.VNCSettings.txt
-
-# Start VNC/reset changes
-sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent -console
-sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate
 
 # Enable Performance mode
 sudo nvram boot-args="serverperfmode=1 $(nvram boot-args 2>/dev/null | cut -f 2-)"
@@ -35,21 +38,21 @@ defaults write com.apple.Accessibility ReduceMotionEnabled -int 1
 # Enable Multi-Session
 sudo /usr/bin/defaults write .GlobalPreferences MultipleSessionsEnabled -bool TRUE
 
-defaults write "Apple Global Domain" MultipleSessionsEnabled -bool true
-
-#Disable Screen-Lock
-defaults write com.apple.loginwindow DisableScreenLock -bool true
-
-defaults write com.apple.loginwindow AllowList -string '*'
-
 # Install applications
 brew install --cask brave-browser
 brew install --cask chrome-remote-desktop-host
 brew install --cask microsoft-remote-desktop
 
 # Ensure the VNC service is running correctly
-sudo launchctl load /System/Library/LaunchDaemons/com.apple.RemoteManagement.plist
-sudo launchctl start com.apple.RemoteManagement
+if sudo launchctl list | grep -q com.apple.RemoteManagement; then
+  echo "com.apple.RemoteManagement is already loaded."
+else
+  sudo launchctl bootstrap system /System/Library/LaunchDaemons/com.apple.RemoteManagement.plist
+  if [ $? -ne 0 ]; then
+    echo "Failed to load com.apple.RemoteManagement. Check the logs for more details."
+    exit 1
+  fi
+fi
 
 # Start Pinggy tunnel
 echo "Starting Pinggy tunnel..."
