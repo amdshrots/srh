@@ -1,60 +1,25 @@
-name: macOS RDP via playit.gg
-
-on:
+name: macOS
+on: 
   workflow_dispatch:
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  rdp-session:
-    runs-on: macos-latest     # macOS 14 “Sonoma” on Apple Silicon :contentReference[oaicite:8]{index=8}
-
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 360  # 6-hour timeout
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
-      - name: Clone playit-agent source
-        run: |
-          git clone https://github.com/playit-cloud/playit-agent.git
-          cd playit-agent
-
-      - name: Build playit-agent
-        run: |
-          cd playit-agent
-          cargo build --release     # produces target/release/playit :contentReference[oaicite:9]{index=9}
-
-      - name: Enable macOS Screen Sharing (VNC)
-        run: |
-          sudo systemsetup -setremotelogin on
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -activate \
-            -configure -access -on \
-            -privs -all \
-            -restart -agent \
-            -menu    # enable VNC-based Screen Sharing :contentReference[oaicite:10]{index=10}
-
-      - name: Authenticate playit.gg agent
-        run: |
-          cd playit-agent
-          nohup ./target/release/playit agent setup &   # will print a claim URL
-          sleep 5
-          # You must click the claim URL in the logs to authorize this agent to your account.
-
-      - name: Create and start tunnel
-        run: |
-          cd playit-agent
-          # forward VNC port 5900
-          nohup ./target/release/playit tunnel tcp --port 5900 &
-
-      - name: Show tunnel info
-        run: |
-          cd playit-agent
-          ./target/release/playit tunnel list   # displays your public endpoint
-
-      - name: Keep job alive
-        # wait so you can connect; timeout after e.g. 1h
-        run: sleep 3600
+    - uses: actions/checkout@v4
+    - name: Setting the Environment Up.
+      env:
+        PASSWD: ${{ secrets.PASSWD }}
+      run: source setup.sh "$PASSWD" "$PASSWD"
+      
+    - name: Get Pinggy Public URL
+      run: |
+        PINGGY_URL=$(ps aux | grep '[s]sh -p 443 -R0:localhost:5900' | awk '{print $NF}' | xargs -I{} curl -s {})
+        echo "Connect via: $PINGGY_URL"
+        
+    - name: Setup tmate Session
+      uses: mxschmitt/action-tmate@v2
